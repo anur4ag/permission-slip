@@ -16,7 +16,11 @@ export default async function SlipPage({params}: {params: Promise<{id: string}>}
   const wf = slip.workflow
   const f = wf?.fields ?? {}
   const refusal = publicGuardianCheck(slip)
-  const canDecline = slip.agent._id === DEMO_AGENT._id && wf?.stage === 'awaiting-signature'
+  const demo = slip.agent._id === DEMO_AGENT._id
+  // A recorded guardian means it's decided, even while the move to "signed" is still pending.
+  const decided = !!wf?.fields.guardianName
+  const canDecline = demo && wf?.stage === 'awaiting-signature' && !decided
+  const stuck = demo && (wf?.stage === 'signed' || (wf?.stage === 'awaiting-signature' && decided))
   return (
     <main>
       <p className="muted">
@@ -66,7 +70,7 @@ export default async function SlipPage({params}: {params: Promise<{id: string}>}
         {wf?.stage === 'awaiting-signature' && !refusal && <Guardian slipId={slip._id} />}
         {wf?.stage === 'awaiting-signature' && refusal && <p className="muted">{refusal}</p>}
         {canDecline && refusal && <Guardian slipId={slip._id} declineOnly />}
-        {slip.agent._id === DEMO_AGENT._id && wf?.stage === 'signed' && <Finish slipId={slip._id} />}
+        {stuck && <Finish slipId={slip._id} />}
         {slip.signature?.url && (
           <div className="row">
             <img src={`${slip.signature.url}?h=120`} alt={`Signature of ${slip.signature.name}`} style={{height: 60}} />

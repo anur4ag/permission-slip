@@ -16,6 +16,10 @@ test('a visitor may sign only the demo agent\'s clean slips that await a guardia
   assert.match(publicGuardianCheck(slip({stage: 'signed'}))!, /not awaiting/)
   assert.match(publicGuardianCheck(slip({agent: {_id: 'agent-claude', name: 'Claude Code'}}))!, /Only the demo agent/)
   assert.equal(publicGuardianCheck(null), 'No such slip.')
+  // Signed, with the move to "signed" still pending: decided, so nobody else may sign.
+  const pending = slip({})
+  pending.workflow!.fields.guardianName = 'Ann'
+  assert.match(publicGuardianCheck(pending)!, /already signed/)
 })
 
 test('an expired slip cannot be signed even before the engine moves it to "expired"', () => {

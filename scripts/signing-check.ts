@@ -5,10 +5,13 @@
 // 2. Two guardians sign at once: one 200, one 409; the drawing, guardianName and the single wall post are the winner's.
 // 3. Signing is interrupted right after the decision (the workflow's sign fired, nothing else ran): another guardian
 //    can't take over (409), and two "finish" calls at once complete it with one post and the first signer's drawing.
+// 4. A real agent's slip signed the way Studio and scripts/file-slip.ts do, with a name and no drawing, signs and files.
 import assert from 'node:assert/strict'
 import {deflateSync} from 'node:zlib'
 import {fileHaikuSlip} from '../lib/demo.ts'
-import {engine, writeClient} from '../lib/engine.ts'
+import {DEFINITION, TAG, engine, fieldOf, settled, writeClient} from '../lib/engine.ts'
+import {instanceDocId} from '@sanity/workflow-engine'
+import {slipRef} from '../lib/demo.ts'
 import {getSlip} from '../lib/slips.ts'
 
 const base = process.argv[2] ?? 'http://127.0.0.1:3000'
@@ -34,6 +37,7 @@ const post = (path: string, body: object, ip: string) =>
   fetch(base + path, {method: 'POST', headers: {'content-type': 'application/json', 'x-forwarded-for': ip}, body: JSON.stringify(body)}).then(async (r) => ({status: r.status, body: (await r.json().catch(() => null)) as {postId?: string; error?: string} | null}))
 const postsFor = (slipId: string) => writeClient.fetch<number>('count(*[_type == "wallPost" && slip._ref == $slipId])', {slipId})
 const created: string[] = []
+const uploaded: string[] = []
 const file = async (topic: string) => {
   const r = await fileHaikuSlip(topic)
   if ('error' in r) throw new Error(r.error)
@@ -63,6 +67,7 @@ try {
   // 3
   const b = await file('a pen that paused')
   const asset = await writeClient.assets.upload('image', png(80), {filename: 'signature-interrupted.png', contentType: 'image/png'})
+  uploaded.push(asset._id)
   await engine.fireAction({instanceId: b.instanceId, activity: 'guardian', action: 'sign', params: {name: 'Interrupted Ann', signature: asset._id}})
   const late = await post(`/api/slips/${b.slipId}/sign`, {name: 'Late Bob', signature: dataUrl(png(120))}, '10.0.1.4')
   assert.equal(late.status, 409, 'nobody else can sign a signed slip')
@@ -74,6 +79,21 @@ try {
   assert.equal(sb?.signature?.name, 'Interrupted Ann')
   assert.equal(await postsFor(b.slipId), 1)
   console.log('interrupted then finished: ok', {slip: b.slipId, post: f1.body?.postId})
+
+  // 4
+  await writeClient.createOrReplace({_id: 'agent-signing-check', _type: 'agent', name: 'Signing check', handle: {_type: 'slug', current: 'signing-check'}})
+  const c = await writeClient.create({_type: 'slip', title: 'Signing check', kind: 'message', destination: 'nowhere', payload: 'A test slip for scripts/signing-check.ts. Nothing happens.', reason: 'Checking that signing without a drawing works.', reversible: true, audience: 'only-me', costUsd: 0, requestedBy: {_type: 'reference', _ref: 'agent-signing-check'}, requestedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600_000).toISOString()})
+  created.push(c._id)
+  const cid = instanceDocId(TAG)
+  await engine.startInstance({definition: DEFINITION, instanceId: cid, initialFields: [{type: 'subject', name: 'subject', value: slipRef(c._id)}]})
+  await engine.drainEffects({instanceId: cid})
+  await engine.fireAction({instanceId: cid, activity: 'guardian', action: 'sign', params: {name: 'Studio Ann'}}) // no signature param
+  const cs = await settled(cid)
+  assert.equal(cs.currentStage, 'signed')
+  assert.deepEqual(fieldOf(cs, 'guardianSignature'), {})
+  await engine.fireAction({instanceId: cid, activity: 'field-trip', action: 'report', params: {outcome: 'nothing happened'}})
+  assert.equal((await settled(cid)).currentStage, 'filed')
+  console.log('signed without a drawing: ok', {slip: c._id})
 } finally {
   // Leave the public dataset as it was: the test slips, their posts, instances and signature images.
   for (const slipId of created) {
@@ -85,7 +105,13 @@ try {
     for (const id of ids) tx.delete(id)
     await tx.commit()
   }
-  // Signature images nothing references any more; one still in use can't be deleted and is kept.
-  for (const id of await writeClient.fetch<string[]>(`*[_type == "sanity.imageAsset" && originalFilename match "signature-*"]._id`)) await writeClient.delete(id).catch(() => {})
+  // Only this run's own images: the one it uploaded, and the route's uploads named after this run's slips. One that any
+  // remaining workflow instance records (identical uploads share an id) or any document references is kept.
+  const mine = await writeClient.fetch<string[]>(`*[_type == "sanity.imageAsset" && (_id in $uploaded || originalFilename in $names)]._id`, {uploaded, names: created.map((s) => `signature-${s}.png`)})
+  for (const id of mine) {
+    if (await writeClient.fetch<number>('count(*[_type == "sanity.workflow.instance" && $id in fields[].value.asset])', {id})) continue
+    await writeClient.delete(id).catch(() => {})
+  }
+  await writeClient.delete('agent-signing-check').catch(() => {})
   console.log('cleaned up', created)
 }

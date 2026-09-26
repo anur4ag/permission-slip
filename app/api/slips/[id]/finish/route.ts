@@ -10,9 +10,13 @@ export async function POST(req: Request, {params}: {params: Promise<{id: string}
   const {id} = await params
   if (!allow(`finish:${ipOf(req)}`, 5, 10 * 60_000, 150)) return Response.json({error: 'Too many tries from here; try again later.'}, {status: 429})
   const slip = await getSlip(id)
-  if (slip?.agent?._id !== DEMO_AGENT._id || slip.workflow?.stage !== 'signed') return Response.json({error: "Only the demo agent's signed slips can be finished here."}, {status: 409})
+  // Signed, signed with the move to "signed" still pending (a recorded guardian), or already filed (finishing again
+  // is a no-op that returns the post): the field trip settles the instance first.
+  const stage = slip?.workflow?.stage
+  const signed = stage === 'signed' || stage === 'filed' || (stage === 'awaiting-signature' && !!slip?.workflow?.fields.guardianName)
+  if (slip?.agent?._id !== DEMO_AGENT._id || !signed) return Response.json({error: "Only the demo agent's signed slips can be finished here."}, {status: 409})
   try {
-    return Response.json({ok: true, postId: await haikuFieldTrip(slip.workflow.instanceId, id)})
+    return Response.json({ok: true, postId: await haikuFieldTrip(slip!.workflow!.instanceId, id)})
   } catch {
     return Response.json({error: 'The field trip still did not finish; try again in a minute.'}, {status: 502})
   }

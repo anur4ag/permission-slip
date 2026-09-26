@@ -1,5 +1,5 @@
 import {instanceDocId, refDataset} from '@sanity/workflow-engine'
-import {DATASET, DEFINITION, PROJECT_ID, TAG, ai, engine, lostRace, writeClient} from './engine.ts'
+import {DATASET, DEFINITION, PROJECT_ID, TAG, ai, engine, fieldOf, fired, settled, writeClient} from './engine.ts'
 
 // The public demo's agent. It only ever asks to post a haiku on this site's own wall.
 export const DEMO_AGENT = {_id: 'agent-haiku-kid', _type: 'agent', name: 'Haiku Kid', handle: {_type: 'slug', current: 'haiku-kid'}, emoji: '🖍️', model: 'Sanity Agent Actions', owner: '@anur4ag', bio: 'Writes one haiku at a time, and always asks before posting it.'}
@@ -44,21 +44,19 @@ export async function fileHaikuSlip(topic: string) {
   return {slipId: slip._id, instanceId} as const
 }
 
-type Instance = {currentStage: string; fields?: {name: string; value?: unknown}[]; history?: {_type: string; action?: string; at: string}[]}
-
 // The field trip, after the workflow says "signed": put the drawing on the slip, post, report back.
 // Everything it needs was recorded with the decision, and every step is idempotent (setIfMissing, a post id
-// derived from the slip, report only while "signed"), so if any step fails, running it again finishes the job.
-export async function haikuFieldTrip(instanceId: string, slipId: string, io: {engine: Pick<typeof engine, 'getInstance' | 'fireAction'>; client: Pick<typeof writeClient, 'patch' | 'getDocument' | 'createIfNotExists'>} = {engine, client: writeClient}) {
+// derived from the slip, report only if not yet recorded), so if any step fails, running it again finishes the job.
+// It succeeds only when the instance has actually reached "filed"; any other outcome throws, and a retry resumes.
+export async function haikuFieldTrip(instanceId: string, slipId: string, io: {engine: Pick<typeof engine, 'tick' | 'getInstance' | 'fireAction'>; client: Pick<typeof writeClient, 'patch' | 'getDocument' | 'createIfNotExists'>} = {engine, client: writeClient}) {
   const postId = `wall-${slipId}`
-  const instance = (await io.engine.getInstance({instanceId})) as unknown as Instance
+  const instance = await settled(instanceId, io.engine)
   if (instance.currentStage === 'filed') return postId
   if (instance.currentStage !== 'signed') throw new Error(`slip is ${instance.currentStage}, not signed`)
-  const field = (name: string) => instance.fields?.find((f) => f.name === name)?.value as string | undefined
-  const asset = field('guardianSignature')
+  const asset = (fieldOf(instance, 'guardianSignature') as {asset?: string} | undefined)?.asset
   if (asset) {
     const signedAt = instance.history?.find((h) => h._type === 'actionFired' && h.action === 'sign')?.at ?? new Date().toISOString()
-    await io.client.patch(slipId).setIfMissing({signature: {_type: 'object', image: {_type: 'image', asset: {_type: 'reference', _ref: asset}}, name: field('guardianName'), signedAt}}).commit()
+    await io.client.patch(slipId).setIfMissing({signature: {_type: 'object', image: {_type: 'image', asset: {_type: 'reference', _ref: asset}}, name: fieldOf(instance, 'guardianName'), signedAt}}).commit()
   }
   const slip = await io.client.getDocument<{payload: string}>(slipId)
   await io.client.createIfNotExists({
@@ -69,10 +67,14 @@ export async function haikuFieldTrip(instanceId: string, slipId: string, io: {en
     slip: {_type: 'reference', _ref: slipId},
     postedAt: new Date().toISOString(),
   })
-  try {
-    await io.engine.fireAction({instanceId, activity: 'field-trip', action: 'report', params: {outcome: `Posted to ${SITE}/#post-${postId}`}})
-  } catch (e) {
-    if (!lostRace(e)) throw e // someone else finishing the same trip already reported it
+  if (!fired(instance, 'report')) {
+    try {
+      await io.engine.fireAction({instanceId, activity: 'field-trip', action: 'report', params: {outcome: `Posted to ${SITE}/#post-${postId}`}})
+    } catch {
+      // Maybe another finisher reported, maybe nothing did: only the settled state says which.
+    }
   }
+  const after = await settled(instanceId, io.engine)
+  if (after.currentStage !== 'filed') throw new Error(`the field trip is not filed yet (stage ${after.currentStage})`)
   return postId
 }

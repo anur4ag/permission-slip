@@ -17,9 +17,6 @@ export const writeClient = createClient({
 // Agent Actions live on the experimental API version.
 export const ai = writeClient.withConfig({apiVersion: 'vX'})
 
-// The engine's errors when another action on the same instance got there first.
-export const lostRace = (e: unknown) => e instanceof Error && (e.name === 'ActionDisabledError' || e.name === 'ConcurrentFireActionError')
-
 export type Verdict = {verdict: 'pass' | 'flag'; note: string}
 
 // The hall monitor: one Agent Actions prompt over the slip document. It advises; it never decides.
@@ -51,3 +48,14 @@ export const engine = createEngine({
   tag: TAG,
   effects: {handlers: {'hall-monitor': hallMonitorEffect}},
 })
+
+export type InstanceView = {currentStage: string; fields?: {name: string; value?: unknown}[]; history?: {_type: string; action?: string; at: string}[]}
+
+// An action and the stage transition it enables are separate commits, so an interrupted request can leave a
+// transition pending. Commit it (tick), then read: a stage is only trusted after this.
+export async function settled(instanceId: string, e: Pick<typeof engine, 'tick' | 'getInstance'> = engine) {
+  await e.tick({instanceId})
+  return (await e.getInstance({instanceId})) as unknown as InstanceView
+}
+export const fieldOf = (i: InstanceView, name: string) => i.fields?.find((f) => f.name === name)?.value
+export const fired = (i: InstanceView, action: string) => !!i.history?.some((h) => h._type === 'actionFired' && h.action === action)

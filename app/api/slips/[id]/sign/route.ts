@@ -1,5 +1,5 @@
 import {haikuFieldTrip} from '@/lib/demo.ts'
-import {engine, lostRace, writeClient} from '@/lib/engine.ts'
+import {engine, fieldOf, settled, writeClient} from '@/lib/engine.ts'
 import {publicGuardianCheck} from '@/lib/guardian.ts'
 import {allow, ipOf} from '@/lib/ratelimit.ts'
 import {getSlip} from '@/lib/slips.ts'
@@ -31,17 +31,23 @@ export async function POST(req: Request, {params}: {params: Promise<{id: string}
     return Response.json(UNUSABLE, {status: 400})
   }
   // 2. The decision, with the drawing, goes through the workflow's own Sign action. The engine commits it against the
-  //    instance's revision, so of two guardians signing at once exactly one wins.
+  //    instance's revision, so of two guardians signing at once exactly one wins. An error doesn't say whether the
+  //    action committed, so the settled instance decides. The uploaded image is never deleted here: its id may be the
+  //    recorded winner's (identical uploads share an id), and an unused upload is harmless.
+  const instanceId = slip!.workflow!.instanceId
   try {
-    await engine.fireAction({instanceId: slip!.workflow!.instanceId, activity: 'guardian', action: 'sign', params: {name: name.trim(), signature: assetId}})
-  } catch (e) {
-    await writeClient.delete(assetId).catch(() => {}) // the loser's drawing is never used
-    if (lostRace(e)) return Response.json({error: 'Someone else decided on this slip first.'}, {status: 409})
-    throw e
+    await engine.fireAction({instanceId, activity: 'guardian', action: 'sign', params: {name: name.trim(), signature: assetId}})
+  } catch {
+    const now = await settled(instanceId).catch(() => null)
+    const signer = now && fieldOf(now, 'guardianName')
+    if (!now || (!signer && now.currentStage === 'awaiting-signature')) return Response.json({error: 'Signing did not go through, and the slip still awaits a guardian. Try again.'}, {status: 502})
+    const ours = signer === name.trim() && (fieldOf(now, 'guardianSignature') as {asset?: string} | undefined)?.asset === assetId
+    if (!ours) return Response.json({error: 'Someone else decided on this slip first.'}, {status: 409})
+    // Our signature committed even though the request errored: carry on.
   }
   // 3. Signed. The field trip only needs what the workflow recorded, so if it fails here it can be finished later.
   try {
-    return Response.json({ok: true, postId: await haikuFieldTrip(slip!.workflow!.instanceId, id)})
+    return Response.json({ok: true, postId: await haikuFieldTrip(instanceId, id)})
   } catch {
     return Response.json({error: 'Signed, but the field trip did not finish. Use "Finish the field trip" on the slip to try again.'}, {status: 502})
   }

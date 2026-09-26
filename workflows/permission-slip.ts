@@ -14,7 +14,8 @@ export const permissionSlip = defineWorkflow({
     defineField({type: 'actor', name: 'guardian', title: 'Signed by (account)'}),
     defineField({type: 'string', name: 'guardianName', title: 'Signed by (name on the slip)'}),
     // The drawn signature's image asset, recorded with the decision so nothing after it depends on the request that made it.
-    defineField({type: 'string', name: 'guardianSignature', title: 'Signature image (asset id)'}),
+    // An object, not a string: signing without a drawing (Studio, CLI) omits the param and stores {} instead of failing.
+    defineField({type: 'object', name: 'guardianSignature', title: 'Signature image', fields: [{type: 'string', name: 'asset', title: 'Asset id'}]}),
     defineField({type: 'string', name: 'declineReason', title: 'Why it was declined'}),
     defineField({type: 'string', name: 'outcome', title: 'What happened on the field trip'}),
   ],
@@ -68,7 +69,7 @@ export const permissionSlip = defineWorkflow({
               ops: [
                 {type: 'field.set', target: {field: 'guardian'}, value: {type: 'actor'}},
                 {type: 'field.set', target: {field: 'guardianName'}, value: {type: 'param', param: 'name'}},
-                {type: 'field.set', target: {field: 'guardianSignature'}, value: {type: 'param', param: 'signature'}},
+                {type: 'field.set', target: {field: 'guardianSignature'}, value: {type: 'object', fields: {asset: {type: 'param', param: 'signature'}}}},
               ],
             }),
             defineAction({
