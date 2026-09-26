@@ -36,7 +36,7 @@ filed ─► hall monitor ─► awaiting a guardian ─sign─► signed ─rep
 - Anyone can play guardian for the demo agent's slips: sign (with a drawn signature) or decline.
 - Nobody anonymous can sign a slip the hall monitor flagged, or any real agent's slip; those are for project members in Studio.
 - Declining is always allowed on demo slips: saying no is safe.
-- Rate limits protect the free plan's Agent Actions credits.
+- Rate limits (in memory, per server instance) protect the free plan's Agent Actions credits; if the credits run out, the demo agent stops.
 
 ## Run it
 
