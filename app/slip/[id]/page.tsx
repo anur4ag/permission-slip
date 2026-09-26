@@ -40,7 +40,7 @@ export default async function SlipPage({params}: {params: Promise<{id: string}>}
           <dt>Where</dt>
           <dd>{slip.destination}</dd>
           <dt>Exactly this</dt>
-          <dd className="hand">{slip.payload}</dd>
+          <dd className={slip.kind === 'post' ? 'hand' : 'exact'}>{slip.payload}</dd>
           <dt>Why</dt>
           <dd>{slip.reason}</dd>
           <dt>Undo</dt>

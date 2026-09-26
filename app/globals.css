@@ -24,6 +24,7 @@ h2 { font-family: var(--type); font-weight: 400; font-size: 1.3rem; margin: 0 0 
 .paper { background: var(--paper); border: 1px solid var(--paper-edge); border-radius: 4px; padding: 22px; margin-bottom: 20px; box-shadow: 0 1px 0 var(--paper-edge), 0 8px 24px rgba(60, 50, 20, 0.08); }
 .type { font-family: var(--type); }
 .hand { font-family: var(--hand); font-size: 1.6rem; line-height: 1.25; color: var(--pen); white-space: pre-wrap; }
+.exact { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--pen); }
 .muted { color: var(--muted); font-size: 0.9rem; }
 .error { color: var(--bad); }
 button, input { font: inherit; }
