@@ -1,0 +1,30 @@
+{
+  "name": "permission-slip",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@sanity/client": "^8.7.0",
+    "@sanity/workflow-cli": "^0.35.0",
+    "@sanity/workflow-engine": "^0.35.0",
+    "@sanity/workflow-studio": "^0.35.0",
+    "@sanity/workflow-studio-plugin": "^0.35.0",
+    "next": "^16.3.6",
+    "next-sanity": "^13.3.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "sanity": "^6.16.0",
+    "styled-components": "^6.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "typescript": "^7.0.2"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --test lib/*.test.ts",
+    "deploy:workflow": "node --env-file=.env.local scripts/deploy-workflow.ts"
+  }
+}
