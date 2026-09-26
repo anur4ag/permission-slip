@@ -2,6 +2,7 @@
 // Usage: node --env-file=.env.local scripts/file-slip.ts slip.json   (prints the slip id and instance id)
 //        node --env-file=.env.local scripts/file-slip.ts --status <instanceId>
 //        node --env-file=.env.local scripts/file-slip.ts --report <instanceId> "<what happened, ideally a link>"
+//        node --env-file=.env.local scripts/file-slip.ts --sign <instanceId> "<guardian>"   (a guardian that isn't a person in Studio, e.g. a review pipeline)
 // slip.json: {"agent": {"_id", "name", "emoji", "model", "owner"}, "title", "kind", "destination", "payload", "reason", "reversible", "audience", "costUsd", "expiresInHours"}
 import {readFileSync} from 'node:fs'
 import {instanceDocId} from '@sanity/workflow-engine'
@@ -13,6 +14,9 @@ if (flag === '--status') {
   const i = await engine.getInstance({instanceId: a})
   const fields = Object.fromEntries(((i as unknown as {fields?: {name: string; value?: unknown}[]}).fields ?? []).map((f) => [f.name, f.value]))
   console.log(JSON.stringify({stage: i.currentStage, monitor: fields.monitorVerdict, note: fields.monitorNote, signedBy: fields.guardianName ?? null, declined: fields.declineReason ?? null}))
+} else if (flag === '--sign') {
+  await engine.fireAction({instanceId: a, activity: 'guardian', action: 'sign', params: {name: b}})
+  console.log((await engine.getInstance({instanceId: a})).currentStage)
 } else if (flag === '--report') {
   await engine.fireAction({instanceId: a, activity: 'field-trip', action: 'report', params: {outcome: b}})
   console.log((await engine.getInstance({instanceId: a})).currentStage)
