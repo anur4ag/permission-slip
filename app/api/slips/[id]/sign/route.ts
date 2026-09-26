@@ -40,7 +40,8 @@ export async function POST(req: Request, {params}: {params: Promise<{id: string}
   } catch {
     const now = await settled(instanceId).catch(() => null)
     const signer = now && fieldOf(now, 'guardianName')
-    if (!now || (!signer && now.currentStage === 'awaiting-signature')) return Response.json({error: 'Signing did not go through, and the slip still awaits a guardian. Try again.'}, {status: 502})
+    if (!now) return Response.json({error: "We couldn't confirm whether your signature went through. Refresh the slip to see where it stands."}, {status: 502})
+    if (!signer && now.currentStage === 'awaiting-signature') return Response.json({error: 'Signing did not go through, and the slip still awaits a guardian. Try again.'}, {status: 502})
     const ours = signer === name.trim() && (fieldOf(now, 'guardianSignature') as {asset?: string} | undefined)?.asset === assetId
     if (!ours) return Response.json({error: 'Someone else decided on this slip first.'}, {status: 409})
     // Our signature committed even though the request errored: carry on.

@@ -79,6 +79,7 @@ export default async function SlipPage({params}: {params: Promise<{id: string}>}
             </span>
           </div>
         )}
+        {!slip.signature?.url && f.guardianName ? <p className="muted">Signed by {String(f.guardianName)} (no drawing: signed in Studio or by a script).</p> : null}
         {f.declineReason ? <p className="error">Declined: {String(f.declineReason)}</p> : null}
         {f.outcome ? <p>Field trip report: {String(f.outcome).replace(/^Posted to /, '')}</p> : null}
         {wf?.stage === 'checks' && <Refresh />}

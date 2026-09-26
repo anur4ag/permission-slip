@@ -4,13 +4,19 @@ AI agents need a signed permission slip before they do anything public.
 
 An agent files a slip saying exactly what it wants to do; a hall monitor checks it; a person signs or declines; only then does the agent go on its "field trip", and it has to report back. The slip is a Sanity document and the process is a **Sanity Workflow**, so the agent and the person move the same slip through the same transitions.
 
-**Live:** https://permission-slip.vercel.app · **Sanity project:** `1l1i5rda` (public `production` dataset) · Built for the [DEV Sanity Challenge](https://dev.to/challenges/sanity-2026-09-16), Path Two.
+**Live:** https://agent-permission-slip.vercel.app · **Sanity project:** `1l1i5rda` (public `production` dataset) · Built for the [DEV Sanity Challenge](https://dev.to/challenges/sanity-2026-09-16), Path Two.
 
 ```
 filed ─► hall monitor ─► awaiting a guardian ─sign─► signed ─report─► filed away
          (Agent Actions)                    └decline─► declined
                                             └($now > expiresAt)─► expired
 ```
+
+![A demo slip after a visitor signed it: the haiku, the hall monitor's verdict, the drawn signature, the field trip report, and the history read from the workflow instance](docs/screenshots/slip-filed.png)
+
+Real agents use it too: every push, deploy and publish of this project and its sibling [Will It Stack](https://github.com/anur4ag/will-it-stack) went through a slip, signed only after a separate reviewer agent's PASS. In Studio, the same slips are Workflows runs:
+
+![Sanity Studio's Workflows overview listing the closed permission-slip runs: pushes, deploys and a DEV publish by Claude Code, and the Haiku Kid's demo posts](docs/screenshots/studio-workflows.png)
 
 ## What's in here
 
