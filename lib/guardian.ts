@@ -1,7 +1,7 @@
 import {DEMO_AGENT} from './demo.ts'
 import type {SlipView} from './slips.ts'
 
-// What an anonymous visitor may do on the public site. Everything else needs a project member in Studio or the Principal's Office.
+// What an anonymous visitor may do on the public site. Everything else needs a project member in Studio.
 export function publicGuardianCheck(slip: SlipView | null): string | null {
   if (!slip?.workflow) return 'No such slip.'
   if (slip.agent?._id !== DEMO_AGENT._id) return "Only the demo agent's slips can be signed here. Other agents' slips are signed by project members in Studio."

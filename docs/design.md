@@ -23,10 +23,10 @@ filed (checks) ─pass/flag─► awaiting-signature ─sign─► signed ─rep
 
 - The hall-monitor check is an **effect**: the runtime drains it, asks Sanity Agent Actions whether the payload is safe to do in public (secrets, personal data, irreversible), and records pass or flag.
 - sign / decline are guardian actions; report is the agent's action after the field trip.
-- The agent side can drive it over `@sanity/workflow-mcp` (a real agent) or the HTTP API (the demo agent).
+- Agents drive it through the engine: `scripts/file-slip.ts` for a real agent (file, `--status`, `--report`), `lib/demo.ts` for the demo agent. (`@sanity/workflow-mcp` would also work; not used here.)
 
 ## Surfaces
 
 - Public web (Next.js): the Field Trip Wall and a "try it" flow: ask the demo agent for a haiku → it files a slip → you sign it (draw a signature) → it posts.
-- Studio: custom signature-pad input, paper-slip preview, Workflows plugin panel.
-- App SDK "Principal's Office" in the Dashboard: live queue of slips awaiting signature.
+- Studio: custom signature-pad input and the Workflows plugin panel.
+- Planned but not shipped: an App SDK "Principal's Office" in the Dashboard. The CLI resolves a parent `sanity.config.ts` before an app's `sanity.cli.ts`, so it can't live inside this repo's root without restructuring, and judges couldn't open an org-only app anyway.
