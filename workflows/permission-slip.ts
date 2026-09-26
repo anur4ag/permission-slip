@@ -13,6 +13,8 @@ export const permissionSlip = defineWorkflow({
     defineField({type: 'string', name: 'monitorNote', title: 'Hall monitor note'}),
     defineField({type: 'actor', name: 'guardian', title: 'Signed by (account)'}),
     defineField({type: 'string', name: 'guardianName', title: 'Signed by (name on the slip)'}),
+    // The drawn signature's image asset, recorded with the decision so nothing after it depends on the request that made it.
+    defineField({type: 'string', name: 'guardianSignature', title: 'Signature image (asset id)'}),
     defineField({type: 'string', name: 'declineReason', title: 'Why it was declined'}),
     defineField({type: 'string', name: 'outcome', title: 'What happened on the field trip'}),
   ],
@@ -59,10 +61,14 @@ export const permissionSlip = defineWorkflow({
               name: 'sign',
               title: 'Sign the slip',
               status: 'done',
-              params: [{type: 'string', name: 'name', title: 'Your name', required: true}],
+              params: [
+                {type: 'string', name: 'name', title: 'Your name', required: true},
+                {type: 'string', name: 'signature', title: 'Signature image (asset id), if drawn outside Studio'},
+              ],
               ops: [
                 {type: 'field.set', target: {field: 'guardian'}, value: {type: 'actor'}},
                 {type: 'field.set', target: {field: 'guardianName'}, value: {type: 'param', param: 'name'}},
+                {type: 'field.set', target: {field: 'guardianSignature'}, value: {type: 'param', param: 'signature'}},
               ],
             }),
             defineAction({

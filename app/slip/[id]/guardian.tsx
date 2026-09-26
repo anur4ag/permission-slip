@@ -53,6 +53,29 @@ export function Guardian({slipId, declineOnly = false}: {slipId: string; decline
   )
 }
 
+// A demo slip that was signed but whose field trip didn't finish. The decision is recorded; this only completes it.
+export function Finish({slipId}: {slipId: string}) {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const finish = async () => {
+    setBusy(true)
+    setError('')
+    const r = await fetch(`/api/slips/${slipId}/finish`, {method: 'POST'})
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) setError(j.error ?? 'Something went wrong.')
+    setBusy(false)
+    router.refresh()
+  }
+  return (
+    <div className="row">
+      <p className="muted" style={{margin: 0}}>Signed, but the field trip didn&apos;t finish.</p>
+      <button disabled={busy} onClick={finish}>{busy ? 'Finishing…' : 'Finish the field trip'}</button>
+      {error && <p className="error" role="alert">{error}</p>}
+    </div>
+  )
+}
+
 // While the hall monitor runs, re-read the page every couple of seconds.
 export function Refresh() {
   const router = useRouter()

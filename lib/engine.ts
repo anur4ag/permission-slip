@@ -17,6 +17,9 @@ export const writeClient = createClient({
 // Agent Actions live on the experimental API version.
 export const ai = writeClient.withConfig({apiVersion: 'vX'})
 
+// The engine's errors when another action on the same instance got there first.
+export const lostRace = (e: unknown) => e instanceof Error && (e.name === 'ActionDisabledError' || e.name === 'ConcurrentFireActionError')
+
 export type Verdict = {verdict: 'pass' | 'flag'; note: string}
 
 // The hall monitor: one Agent Actions prompt over the slip document. It advises; it never decides.

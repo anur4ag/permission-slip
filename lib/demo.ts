@@ -1,5 +1,5 @@
 import {instanceDocId, refDataset} from '@sanity/workflow-engine'
-import {DATASET, DEFINITION, PROJECT_ID, TAG, ai, engine, writeClient} from './engine.ts'
+import {DATASET, DEFINITION, PROJECT_ID, TAG, ai, engine, lostRace, writeClient} from './engine.ts'
 
 // The public demo's agent. It only ever asks to post a haiku on this site's own wall.
 export const DEMO_AGENT = {_id: 'agent-haiku-kid', _type: 'agent', name: 'Haiku Kid', handle: {_type: 'slug', current: 'haiku-kid'}, emoji: '🖍️', model: 'Sanity Agent Actions', owner: '@anur4ag', bio: 'Writes one haiku at a time, and always asks before posting it.'}
@@ -44,18 +44,35 @@ export async function fileHaikuSlip(topic: string) {
   return {slipId: slip._id, instanceId} as const
 }
 
-// The field trip: only after the workflow says "signed". Posts, then reports back through the workflow.
-export async function haikuFieldTrip(instanceId: string, slipId: string) {
-  const instance = await engine.getInstance({instanceId})
+type Instance = {currentStage: string; fields?: {name: string; value?: unknown}[]; history?: {_type: string; action?: string; at: string}[]}
+
+// The field trip, after the workflow says "signed": put the drawing on the slip, post, report back.
+// Everything it needs was recorded with the decision, and every step is idempotent (setIfMissing, a post id
+// derived from the slip, report only while "signed"), so if any step fails, running it again finishes the job.
+export async function haikuFieldTrip(instanceId: string, slipId: string, io: {engine: Pick<typeof engine, 'getInstance' | 'fireAction'>; client: Pick<typeof writeClient, 'patch' | 'getDocument' | 'createIfNotExists'>} = {engine, client: writeClient}) {
+  const postId = `wall-${slipId}`
+  const instance = (await io.engine.getInstance({instanceId})) as unknown as Instance
+  if (instance.currentStage === 'filed') return postId
   if (instance.currentStage !== 'signed') throw new Error(`slip is ${instance.currentStage}, not signed`)
-  const slip = await writeClient.getDocument<{payload: string}>(slipId)
-  const post = await writeClient.create({
+  const field = (name: string) => instance.fields?.find((f) => f.name === name)?.value as string | undefined
+  const asset = field('guardianSignature')
+  if (asset) {
+    const signedAt = instance.history?.find((h) => h._type === 'actionFired' && h.action === 'sign')?.at ?? new Date().toISOString()
+    await io.client.patch(slipId).setIfMissing({signature: {_type: 'object', image: {_type: 'image', asset: {_type: 'reference', _ref: asset}}, name: field('guardianName'), signedAt}}).commit()
+  }
+  const slip = await io.client.getDocument<{payload: string}>(slipId)
+  await io.client.createIfNotExists({
+    _id: postId,
     _type: 'wallPost',
     text: slip!.payload,
     agent: {_type: 'reference', _ref: DEMO_AGENT._id},
     slip: {_type: 'reference', _ref: slipId},
     postedAt: new Date().toISOString(),
   })
-  await engine.fireAction({instanceId, activity: 'field-trip', action: 'report', params: {outcome: `Posted to ${SITE}/#post-${post._id}`}})
-  return post._id
+  try {
+    await io.engine.fireAction({instanceId, activity: 'field-trip', action: 'report', params: {outcome: `Posted to ${SITE}/#post-${postId}`}})
+  } catch (e) {
+    if (!lostRace(e)) throw e // someone else finishing the same trip already reported it
+  }
+  return postId
 }

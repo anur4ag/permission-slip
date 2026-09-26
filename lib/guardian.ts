@@ -11,6 +11,3 @@ export function publicGuardianCheck(slip: SlipView | null, now = Date.now()): st
   if (slip.workflow.fields.monitorVerdict === 'flag') return 'The hall monitor flagged this slip, so a public visitor cannot sign it. A project member can still review it in Studio.'
   return null
 }
-
-// The engine's errors when another decision on the same slip got there first.
-export const lostRace = (e: unknown) => e instanceof Error && (e.name === 'ActionDisabledError' || e.name === 'ConcurrentFireActionError')

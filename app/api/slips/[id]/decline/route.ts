@@ -1,8 +1,7 @@
-import {engine} from '@/lib/engine.ts'
+import {engine, lostRace} from '@/lib/engine.ts'
 import {DEMO_AGENT} from '@/lib/demo.ts'
 import {allow, ipOf} from '@/lib/ratelimit.ts'
 import {getSlip} from '@/lib/slips.ts'
-import {lostRace} from '@/lib/guardian.ts'
 
 export async function POST(req: Request, {params}: {params: Promise<{id: string}>}) {
   const {id} = await params

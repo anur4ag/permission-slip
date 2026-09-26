@@ -3,7 +3,7 @@ import {notFound} from 'next/navigation'
 import {DEMO_AGENT} from '@/lib/demo.ts'
 import {publicGuardianCheck} from '@/lib/guardian.ts'
 import {STAGE_TITLE, getSlip} from '@/lib/slips.ts'
-import {Guardian, Refresh} from './guardian.tsx'
+import {Finish, Guardian, Refresh} from './guardian.tsx'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +66,7 @@ export default async function SlipPage({params}: {params: Promise<{id: string}>}
         {wf?.stage === 'awaiting-signature' && !refusal && <Guardian slipId={slip._id} />}
         {wf?.stage === 'awaiting-signature' && refusal && <p className="muted">{refusal}</p>}
         {canDecline && refusal && <Guardian slipId={slip._id} declineOnly />}
+        {slip.agent._id === DEMO_AGENT._id && wf?.stage === 'signed' && <Finish slipId={slip._id} />}
         {slip.signature?.url && (
           <div className="row">
             <img src={`${slip.signature.url}?h=120`} alt={`Signature of ${slip.signature.name}`} style={{height: 60}} />
