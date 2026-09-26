@@ -2,6 +2,7 @@ import {engine} from '@/lib/engine.ts'
 import {DEMO_AGENT} from '@/lib/demo.ts'
 import {allow, ipOf} from '@/lib/ratelimit.ts'
 import {getSlip} from '@/lib/slips.ts'
+import {lostRace} from '@/lib/guardian.ts'
 
 export async function POST(req: Request, {params}: {params: Promise<{id: string}>}) {
   const {id} = await params
@@ -10,7 +11,12 @@ export async function POST(req: Request, {params}: {params: Promise<{id: string}
   if (!allow(`decline:${ipOf(req)}`, 5, 10 * 60_000, 150)) return Response.json({error: 'Too many decisions from here; try again later.'}, {status: 429})
   const slip = await getSlip(id)
   // Visitors may decline the demo agent's slips, flagged or not: saying no is always safe. Real agents' slips are for project members.
-  if (slip?.agent?._id !== DEMO_AGENT._id || slip.workflow?.stage !== 'awaiting-signature') return Response.json({error: "Only the demo agent's slips that are awaiting a guardian can be declined here."}, {status: 409})
-  await engine.fireAction({instanceId: slip!.workflow!.instanceId, activity: 'guardian', action: 'decline', params: {reason: reason.trim()}})
+  if (slip?.agent?._id !== DEMO_AGENT._id || slip.workflow?.stage !== 'awaiting-signature' || !(Date.parse(slip.expiresAt ?? '') > Date.now())) return Response.json({error: "Only the demo agent's slips that are awaiting a guardian can be declined here."}, {status: 409})
+  try {
+    await engine.fireAction({instanceId: slip.workflow.instanceId, activity: 'guardian', action: 'decline', params: {reason: reason.trim()}})
+  } catch (e) {
+    if (lostRace(e)) return Response.json({error: 'Someone else decided on this slip first.'}, {status: 409})
+    throw e
+  }
   return Response.json({ok: true})
 }

@@ -53,6 +53,8 @@ node --env-file=.env.local scripts/smoke.ts "a topic"   # end-to-end: file → m
 - Workflows is in early access (0.35); engine checks are advisory, so the public API routes enforce who may sign, not the Content Lake.
 - In the public demo, the guardian is whoever is visiting; the engine records the action under the site's server token and the typed name, not a verified identity.
 - The hall monitor is a single LLM prompt. It advises; it never decides.
+- A visitor's typed name and drawn signature are shown as given: the hall monitor checks what the agent wants to do, not the guardian. Project members can delete a post in Studio.
+- Two guardians signing the same slip at once: the engine commits actions against the instance's revision, so exactly one wins and the other gets a 409 (`scripts/race.mjs`).
 
 ## Built by
 
